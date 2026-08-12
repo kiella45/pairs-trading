@@ -489,6 +489,34 @@ async def cache_status():
     }
 
 
+@app.post("/cache/update")
+async def start_update(timeframe: Timeframe = Query(Timeframe.H1)):
+    symbols_info = await get_perpetual_symbols()
+    symbols = [s["symbol"] for s in symbols_info]
+    conn = sqlite3.connect(CACHE_DB)
+    cursor = conn.cursor()
+    now = datetime.utcnow()
+    deleted = 0
+    for s in symbols:
+        for interval, limit in [(timeframe.value, 500), ("1d", 180)]:
+            cursor.execute(
+                "SELECT updated_at FROM price_cache WHERE symbol = ? AND interval = ? AND limit_val = ?",
+                (s, interval, limit)
+            )
+            row = cursor.fetchone()
+            if row is not None:
+                updated = datetime.fromisoformat(row[0])
+                if now - updated > timedelta(minutes=CACHE_MAX_AGE_MINUTES):
+                    cursor.execute(
+                        "DELETE FROM price_cache WHERE symbol = ? AND interval = ? AND limit_val = ?",
+                        (s, interval, limit)
+                    )
+                    deleted += 1
+    conn.commit()
+    conn.close()
+    return {"deleted": deleted, "message": f"Removed {deleted} stale entries. Refreshing data..."}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

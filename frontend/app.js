@@ -4,6 +4,24 @@ let sortKey = 'score';
 let sortDesc = true;
 let charts = {};
 
+async function startUpdate() {
+    const btn = document.getElementById('updateBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Updating...';
+    try {
+        const tf = document.getElementById('timeframe').value;
+        const res = await fetch(`${API}/cache/update?timeframe=${tf}`, {method: 'POST'});
+        const data = await res.json();
+        console.log(data.message);
+        await loadPairs(true);
+    } catch (e) {
+        alert('Update error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 Update';
+    }
+}
+
 async function loadPairs(force = false) {
     const btn = document.getElementById('loadBtn');
     const forceBtn = document.getElementById('forceBtn');
